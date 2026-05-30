@@ -2,6 +2,17 @@
 
 A backend API simulating a real-world payment gateway. Built with Node.js, Express, TypeScript, and Prisma.
 
+## What This Project Covers
+
+This project simulates the core backend operations of a payment processor like Stripe or PayPal:
+
+- **Process payments** — A merchant charges a customer. The system looks up the merchant's fee tier, calculates the fee and net amount, and records a full transaction breakdown.
+- **Issue refunds** — Partial or full refunds against a completed payment. The system tracks how much has been refunded and prevents over-refunding.
+- **Raise and resolve disputes** — A customer or merchant can dispute a payment. Disputes can be resolved as accepted (triggers a refund) or rejected (restores the payment).
+- **Run settlements** — At the end of a period, a merchant's completed payments are batched into a single settlement record. Prevents double-settling the same payments.
+- **View merchant payments** — Paginated list of all payments for a merchant, filterable by status. Uses cursor-based pagination for efficiency at scale.
+- **Bulk status updates** — Update all completed payments for a merchant to a new status in one operation.
+
 ## Tech Stack
 
 - **Runtime**: Node.js + TypeScript
