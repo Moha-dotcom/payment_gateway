@@ -1,0 +1,253 @@
+-- CreateEnum
+CREATE TYPE "merchants_status" AS ENUM ('ACTIVE', 'SUSPENDED', 'BANNED', 'INACTIVE');
+
+-- CreateEnum
+CREATE TYPE "currencies" AS ENUM ('EUR', 'USD', 'SOM', 'KES');
+
+-- CreateEnum
+CREATE TYPE "TIER_type" AS ENUM ('BASIC', 'GROWTH', 'ENTERPRISE');
+
+-- CreateEnum
+CREATE TYPE "PAYMENT_STATUS" AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'DISPUTED', 'REFUNDED');
+
+-- CreateEnum
+CREATE TYPE "PAYMENT_METHODS" AS ENUM ('VISA', 'ACH', 'MASTERCARD');
+
+-- CreateEnum
+CREATE TYPE "refund_status" AS ENUM ('PENDING', 'REJECTED', 'REFUNDED');
+
+-- CreateEnum
+CREATE TYPE "dispute_status" AS ENUM ('OPEN', 'UNDER_REVIEW', 'ESCALATED', 'RESOLVED', 'REJECTED');
+
+-- CreateEnum
+CREATE TYPE "raisedBy" AS ENUM ('MERCHANT', 'CUSTOMER');
+
+-- CreateEnum
+CREATE TYPE "settlementStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED');
+
+-- CreateTable
+CREATE TABLE "CATEGORIES" (
+    "id" UUID NOT NULL,
+    "name" VARCHAR(200) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CATEGORIES_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "MERCHANTS" (
+    "id" UUID NOT NULL,
+    "business_name" VARCHAR(100) NOT NULL,
+    "business_address" VARCHAR(500) NOT NULL,
+    "phone_number" VARCHAR(200) NOT NULL,
+    "email" VARCHAR(200) NOT NULL,
+    "password" VARCHAR(200) NOT NULL,
+    "annual_revenue" DECIMAL(19,2),
+    "status" "merchants_status" NOT NULL DEFAULT 'ACTIVE',
+    "currency" "currencies" NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "current_tier" UUID,
+
+    CONSTRAINT "MERCHANTS_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SELLING_CATEGORY" (
+    "id" UUID NOT NULL,
+    "category_id" UUID NOT NULL,
+    "merchant_id" UUID NOT NULL,
+
+    CONSTRAINT "SELLING_CATEGORY_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CUSTOMER" (
+    "id" UUID NOT NULL,
+    "name" VARCHAR(200) NOT NULL,
+    "email" VARCHAR(200) NOT NULL,
+    "phone_number" VARCHAR(200) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CUSTOMER_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "fee_schedule" (
+    "id" UUID NOT NULL,
+    "tier" "TIER_type" NOT NULL DEFAULT 'BASIC',
+    "volume_min" DECIMAL(19,2) NOT NULL,
+    "volume_max" DECIMAL(19,2),
+    "fee_rate" DECIMAL(5,4) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "fee_schedule_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PAYMENTS" (
+    "id" UUID NOT NULL,
+    "merchant_id" UUID NOT NULL,
+    "customer_id" UUID NOT NULL,
+    "amount" DECIMAL(19,4) NOT NULL,
+    "currency" "currencies" NOT NULL,
+    "payment_method" "PAYMENT_METHODS" NOT NULL,
+    "payment_status" "PAYMENT_STATUS" NOT NULL DEFAULT 'PENDING',
+    "refunded_amount" DECIMAL(19,4) NOT NULL DEFAULT 0,
+    "reference_code" VARCHAR(200) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PAYMENTS_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TRANSACTION_BREAKDOWN" (
+    "id" UUID NOT NULL,
+    "payment_id" UUID NOT NULL,
+    "fee_schedule_id" UUID NOT NULL,
+    "fee_rate" DECIMAL(5,2) NOT NULL,
+    "fee_amount" DECIMAL(19,4) NOT NULL,
+    "net_amount" DECIMAL(19,4) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TRANSACTION_BREAKDOWN_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "REFUNDS" (
+    "id" UUID NOT NULL,
+    "payment_id" UUID NOT NULL,
+    "amount" DECIMAL(19,4) NOT NULL,
+    "status" "refund_status" NOT NULL DEFAULT 'PENDING',
+    "reason" VARCHAR(500) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_by" VARCHAR(200) NOT NULL,
+
+    CONSTRAINT "REFUNDS_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DISPUTES" (
+    "id" UUID NOT NULL,
+    "payment_id" UUID NOT NULL,
+    "raised_by" "raisedBy" NOT NULL,
+    "status" "dispute_status" NOT NULL DEFAULT 'OPEN',
+    "reason" VARCHAR(500) NOT NULL,
+    "resolved_by" VARCHAR(200),
+    "resolved_at" TIMESTAMPTZ(6),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DISPUTES_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SETTLEMENT" (
+    "id" UUID NOT NULL,
+    "merchant_id" UUID NOT NULL,
+    "settlement_amount" DECIMAL(19,4) NOT NULL,
+    "status" "settlementStatus" NOT NULL DEFAULT 'PENDING',
+    "period_start" TIMESTAMPTZ(6) NOT NULL,
+    "period_end" TIMESTAMPTZ(6) NOT NULL,
+    "settled_by" VARCHAR(200),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SETTLEMENT_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SETTLEMENT_PAYMENTS" (
+    "id" UUID NOT NULL,
+    "payment_id" UUID NOT NULL,
+    "settlement_id" UUID NOT NULL,
+
+    CONSTRAINT "SETTLEMENT_PAYMENTS_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SETTLEMENT_BREAKDOWN" (
+    "id" UUID NOT NULL,
+    "settlement_id" UUID NOT NULL,
+    "gross_amount" DECIMAL(19,4) NOT NULL,
+    "fee_deduction" DECIMAL(19,4) NOT NULL,
+    "disputes_held" DECIMAL(19,4) NOT NULL,
+    "net_amount" DECIMAL(19,4) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SETTLEMENT_BREAKDOWN_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CATEGORIES_name_key" ON "CATEGORIES"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "MERCHANTS_email_key" ON "MERCHANTS"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SELLING_CATEGORY_category_id_merchant_id_key" ON "SELLING_CATEGORY"("category_id", "merchant_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CUSTOMER_email_key" ON "CUSTOMER"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "fee_schedule_tier_key" ON "fee_schedule"("tier");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PAYMENTS_reference_code_key" ON "PAYMENTS"("reference_code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TRANSACTION_BREAKDOWN_payment_id_key" ON "TRANSACTION_BREAKDOWN"("payment_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DISPUTES_payment_id_key" ON "DISPUTES"("payment_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SETTLEMENT_PAYMENTS_payment_id_key" ON "SETTLEMENT_PAYMENTS"("payment_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SETTLEMENT_BREAKDOWN_settlement_id_key" ON "SETTLEMENT_BREAKDOWN"("settlement_id");
+
+-- AddForeignKey
+ALTER TABLE "MERCHANTS" ADD CONSTRAINT "MERCHANTS_current_tier_fkey" FOREIGN KEY ("current_tier") REFERENCES "fee_schedule"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SELLING_CATEGORY" ADD CONSTRAINT "SELLING_CATEGORY_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "CATEGORIES"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SELLING_CATEGORY" ADD CONSTRAINT "SELLING_CATEGORY_merchant_id_fkey" FOREIGN KEY ("merchant_id") REFERENCES "MERCHANTS"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PAYMENTS" ADD CONSTRAINT "PAYMENTS_merchant_id_fkey" FOREIGN KEY ("merchant_id") REFERENCES "MERCHANTS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PAYMENTS" ADD CONSTRAINT "PAYMENTS_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "CUSTOMER"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TRANSACTION_BREAKDOWN" ADD CONSTRAINT "TRANSACTION_BREAKDOWN_payment_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "PAYMENTS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TRANSACTION_BREAKDOWN" ADD CONSTRAINT "TRANSACTION_BREAKDOWN_fee_schedule_id_fkey" FOREIGN KEY ("fee_schedule_id") REFERENCES "fee_schedule"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "REFUNDS" ADD CONSTRAINT "REFUNDS_payment_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "PAYMENTS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DISPUTES" ADD CONSTRAINT "DISPUTES_payment_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "PAYMENTS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SETTLEMENT" ADD CONSTRAINT "SETTLEMENT_merchant_id_fkey" FOREIGN KEY ("merchant_id") REFERENCES "MERCHANTS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SETTLEMENT_PAYMENTS" ADD CONSTRAINT "SETTLEMENT_PAYMENTS_payment_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "PAYMENTS"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SETTLEMENT_PAYMENTS" ADD CONSTRAINT "SETTLEMENT_PAYMENTS_settlement_id_fkey" FOREIGN KEY ("settlement_id") REFERENCES "SETTLEMENT"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SETTLEMENT_BREAKDOWN" ADD CONSTRAINT "SETTLEMENT_BREAKDOWN_settlement_id_fkey" FOREIGN KEY ("settlement_id") REFERENCES "SETTLEMENT"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

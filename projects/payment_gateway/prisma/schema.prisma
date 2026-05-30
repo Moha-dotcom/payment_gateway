@@ -1,0 +1,272 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MerchantStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  INACTIVE
+
+  @@map("merchants_status")
+}
+
+enum Currency {
+  EUR
+  USD
+  SOM
+  KES
+
+  @@map("currencies")
+}
+
+enum TierType {
+  BASIC
+  GROWTH
+  ENTERPRISE
+
+  @@map("TIER_type")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  DISPUTED
+  REFUNDED
+  SETTLED
+
+  @@map("PAYMENT_STATUS")
+}
+
+enum PaymentMethod {
+  VISA
+  ACH
+  MASTERCARD
+
+  @@map("PAYMENT_METHODS")
+}
+
+enum RefundStatus {
+  PENDING
+  REJECTED
+  REFUNDED
+
+  @@map("refund_status")
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  ESCALATED
+  RESOLVED
+  REJECTED
+
+  @@map("dispute_status")
+}
+
+enum RaisedBy {
+  MERCHANT
+  CUSTOMER
+
+  @@map("raisedBy")
+}
+
+enum SettlementStatus {
+  PENDING
+  COMPLETED
+  FAILED
+
+  @@map("settlementStatus")
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  sellingCategories SellingCategory[]
+
+  @@map("CATEGORIES")
+}
+
+model Merchant {
+  id              String         @id @default(uuid()) @db.Uuid
+  businessName    String         @map("business_name") @db.VarChar(100)
+  businessAddress String         @map("business_address") @db.VarChar(500)
+  phoneNumber     String         @map("phone_number") @db.VarChar(200)
+  email           String         @unique @db.VarChar(200)
+  password        String         @db.VarChar(200)
+  annualRevenue   Decimal?       @map("annual_revenue") @db.Decimal(19, 2)
+  status          MerchantStatus @default(ACTIVE)
+  currency        Currency
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  currentTierId String?      @map("current_tier") @db.Uuid
+  currentTier   FeeSchedule? @relation(fields: [currentTierId], references: [id])
+
+  sellingCategories SellingCategory[]
+  payments          Payment[]
+  settlements       Settlement[]
+
+  @@map("MERCHANTS")
+}
+
+model SellingCategory {
+  id         String @id @default(uuid()) @db.Uuid
+  categoryId String @map("category_id") @db.Uuid
+  merchantId String @map("merchant_id") @db.Uuid
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, merchantId])
+  @@map("SELLING_CATEGORY")
+}
+
+model Customer {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(200)
+  email       String   @unique @db.VarChar(200)
+  phoneNumber String   @map("phone_number") @db.VarChar(200)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  payments Payment[]
+
+  @@map("CUSTOMER")
+}
+
+model FeeSchedule {
+  id        String   @id @default(uuid()) @db.Uuid
+  tier      TierType @unique @default(BASIC)
+  volumeMin Decimal  @map("volume_min") @db.Decimal(19, 2)
+  volumeMax Decimal? @map("volume_max") @db.Decimal(19, 2)
+  feeRate   Decimal  @map("fee_rate") @db.Decimal(5, 4)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  transactionBreakdowns TransactionBreakdown[]
+  merchantsCurrentTier  Merchant[]
+
+  @@map("fee_schedule")
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  merchantId     String        @map("merchant_id") @db.Uuid
+  customerId     String        @map("customer_id") @db.Uuid
+  amount         Decimal       @db.Decimal(19, 4)
+  currency       Currency
+  paymentMethod  PaymentMethod @map("payment_method")
+  paymentStatus  PaymentStatus @default(PENDING) @map("payment_status")
+  refundedAmount Decimal       @default(0) @map("refunded_amount") @db.Decimal(19, 4)
+  referenceCode  String        @unique @map("reference_code") @db.VarChar(200)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  transactionBreakdown TransactionBreakdown?
+  refunds              Refund[]
+  dispute              Dispute?
+  settlementPayment    SettlementPayment?
+
+  @@map("PAYMENTS")
+}
+
+model TransactionBreakdown {
+  id            String   @id @default(uuid()) @db.Uuid
+  paymentId     String   @unique @map("payment_id") @db.Uuid
+  feeScheduleId String   @map("fee_schedule_id") @db.Uuid
+  feeRate       Decimal  @map("fee_rate") @db.Decimal(5, 2)
+  feeAmount     Decimal  @map("fee_amount") @db.Decimal(19, 4)
+  netAmount     Decimal  @map("net_amount") @db.Decimal(19, 4)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  payment     Payment     @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  feeSchedule FeeSchedule @relation(fields: [feeScheduleId], references: [id])
+
+  @@map("TRANSACTION_BREAKDOWN")
+}
+
+model Refund {
+  id        String       @id @default(uuid()) @db.Uuid
+  paymentId String       @map("payment_id") @db.Uuid
+  amount    Decimal      @db.Decimal(19, 4)
+  status    RefundStatus @default(PENDING)
+  reason    String       @db.VarChar(500)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String       @map("updated_by") @db.VarChar(200)
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@map("REFUNDS")
+}
+
+model Dispute {
+  id         String        @id @default(uuid()) @db.Uuid
+  paymentId  String        @unique @map("payment_id") @db.Uuid
+  raisedBy   RaisedBy      @map("raised_by")
+  status     DisputeStatus @default(OPEN)
+  reason     String        @db.VarChar(500)
+  resolvedBy String?       @map("resolved_by") @db.VarChar(200)
+  resolvedAt DateTime?     @map("resolved_at") @db.Timestamptz(6)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@map("DISPUTES")
+}
+
+model Settlement {
+  id               String           @id @default(uuid()) @db.Uuid
+  merchantId       String           @map("merchant_id") @db.Uuid
+  settlementAmount Decimal          @map("settlement_amount") @db.Decimal(19, 4)
+  status           SettlementStatus @default(PENDING)
+  periodStart      DateTime         @map("period_start") @db.Timestamptz(6)
+  periodEnd        DateTime         @map("period_end") @db.Timestamptz(6)
+  settledBy        String?          @map("settled_by") @db.VarChar(200)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  merchant            Merchant             @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  settlementPayments  SettlementPayment[]
+  settlementBreakdown SettlementBreakdown?
+
+  @@map("SETTLEMENT")
+}
+
+model SettlementPayment {
+  id           String @id @default(uuid()) @db.Uuid
+  paymentId    String @unique @map("payment_id") @db.Uuid
+  settlementId String @map("settlement_id") @db.Uuid
+
+  payment    Payment    @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  settlement Settlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+
+  @@map("SETTLEMENT_PAYMENTS")
+}
+
+model SettlementBreakdown {
+  id           String   @id @default(uuid()) @db.Uuid
+  settlementId String   @unique @map("settlement_id") @db.Uuid
+  grossAmount  Decimal  @map("gross_amount") @db.Decimal(19, 4)
+  feeDeduction Decimal  @map("fee_deduction") @db.Decimal(19, 4)
+  disputesHeld Decimal  @map("disputes_held") @db.Decimal(19, 4)
+  netAmount    Decimal  @map("net_amount") @db.Decimal(19, 4)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  settlement Settlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+
+  @@map("SETTLEMENT_BREAKDOWN")
+}
