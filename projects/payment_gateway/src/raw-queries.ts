@@ -132,7 +132,6 @@ async function suspendMerchant(merchantId : string) : Promise<void | Error | str
     }
 }
 
-
 suspendMerchant('7d604699-e20c-4cb0-b49c-754bb0032ccf').then((merchantId) => {
     console.log(merchantId)
 })
